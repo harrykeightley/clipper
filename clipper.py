@@ -6,6 +6,11 @@ from datetime import datetime, timedelta
 def check_paths(video, input_file, output_folder):
     return os.path.isfile(video) and os.path.isfile(input_file) and os.path.isdir(output_folder)
 
+def truncate_seconds(time):
+    x = time.split(':')
+    x[-1] = str(round(float(x[-1])))
+    return ':'.join()
+
 def parse_clip_line(line):
     #HH:MM:SS-HH:MM:SS
     try:
@@ -13,6 +18,9 @@ def parse_clip_line(line):
     except ValueError:
         print('ERROR: invalid input file', file=sys.stderr)
         exit(2)
+
+    start = truncate_seconds(start)
+    end = truncate_seconds(end)
 
     format_str = "%H:%M:%S"
     start = datetime.strptime(start, format_str)
