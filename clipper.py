@@ -1,6 +1,7 @@
 import os
 import sys
 import argparse
+import subprocess
 from datetime import datetime, timedelta
 
 def check_paths(video, input_file, output_folder):
@@ -9,7 +10,7 @@ def check_paths(video, input_file, output_folder):
 def truncate_seconds(time):
     x = time.split(':')
     x[-1] = str(round(float(x[-1])))
-    return ':'.join()
+    return ':'.join(x)
 
 def parse_clip_line(line):
     #HH:MM:SS-HH:MM:SS
@@ -42,16 +43,78 @@ def get_clips_from_file(input_file):
             
     return result
 
+def get_keyframes(frame_output):
+    # filter irrelevant lines
+    keyframes = [x.split('=')[-1].strip() for x in frame_output.split('\n') if x.startswith('pkt_pts')]
+
+    # convert to time deltas
+    keyframes = [timedelta(seconds=float(x)) for x in keyframes]
+    keyframes = [str(x) for x in keyframes]
+    print(keyframes)
+
+    # properly pad all keyframes
+    padded_keyframes = []
+    for frame in keyframes:
+        x = frame.split(':')
+        x[0] = x[0].zfill(2)
+        padded_keyframes.append(':'.join(x))
+
+    keyframes = [datetime.strptime(str(x), '%H:%M:%S.%f') for x in padded_keyframes if '.' in str(x)]
+
+    # edge case
+    if '.' not in str(padded_keyframes[0]):
+        keyframes = [datetime.strptime('00:00:00', '%H:%M:%S')] + keyframes
+
+    return keyframes
+
+def get_previous_keyframe(keyframes, time, index=0):
+    # TODO make more efficient
+    # result = keyframes[index]
+    # for keyframe in keyframes[index:]:
+    #     if keyframe > time:
+    #         break
+    #     result = keyframe
+
+    # return result - timedelta(milliseconds=34), keyframes.index(result)
+    while keyframes[index] < time:
+        index += 1
+    
+    return keyframes[index - 1] - timedelta(milliseconds=34), index
+
+
 def main(args):
     # get clip timings from input file
     clips = get_clips_from_file(args.input_file)
 
+    print("Generating keyframes")
+    command = f'ffprobe -select_streams v -skip_frame nokey -show_frames -show_entries frame=pkt_pts_time,pict_type {args.video}'
+    out = subprocess.Popen(command.split(), 
+           stdout=subprocess.PIPE, 
+           stderr=subprocess.STDOUT)
+    a, b = out.communicate()
+    key_frames = get_keyframes(a.decode('ascii'))
+
+    print("Reading clip info")
+    
+    # replace all starts with the nearest previous keyframe
+    # TODO make more efficient for getting the next keyframe.
+    adjusted_clips = []
+    index = 0
+    for (start, end) in clips:
+        key, index = get_previous_keyframe(key_frames, start, index)
+        adjusted_clips.append((key, end))
+    
     # call ffmpeg on those clips and store them in output_folder
-    for i, (start, end) in enumerate(clips, start=1):
+    for i, (start, end) in enumerate(adjusted_clips, start=1):
+        print(start, end)
         delta = (end - start).seconds
+        print(delta)
         out = os.path.join(args.output, f"clip{i}.mp4")
-        command = f'ffmpeg -i {args.video} -ss {start.strftime("%H:%M:%S")} -t {delta} -c:v copy -c:a copy {out}'
+        start_time = start.strftime("%H:%M:%S.%f")
+        print(start)
+        command = f'ffmpeg -i {args.video} -ss {start_time} -t {delta} -c copy {out}'
         os.system(command)
+        
 
 
     
