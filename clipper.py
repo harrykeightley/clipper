@@ -13,7 +13,6 @@ def truncate_seconds(time):
     return ':'.join(x)
 
 def parse_clip_line(line):
-    #HH:MM:SS-HH:MM:SS
     try:
         start, end = line.split('-')
     except ValueError:
@@ -68,14 +67,6 @@ def get_keyframes(frame_output):
     return keyframes
 
 def get_previous_keyframe(keyframes, time, index=0):
-    # TODO make more efficient
-    # result = keyframes[index]
-    # for keyframe in keyframes[index:]:
-    #     if keyframe > time:
-    #         break
-    #     result = keyframe
-
-    # return result - timedelta(milliseconds=34), keyframes.index(result)
     while keyframes[index] < time:
         index += 1
     
@@ -97,7 +88,6 @@ def main(args):
     print("Reading clip info")
     
     # replace all starts with the nearest previous keyframe
-    # TODO make more efficient for getting the next keyframe.
     adjusted_clips = []
     index = 0
     for (start, end) in clips:
