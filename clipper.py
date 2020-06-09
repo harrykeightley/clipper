@@ -82,8 +82,8 @@ def main(args):
     out = subprocess.Popen(command.split(), 
            stdout=subprocess.PIPE, 
            stderr=subprocess.STDOUT)
-    a, b = out.communicate()
-    key_frames = get_keyframes(a.decode('ascii'))
+    frame_output, _ = out.communicate()
+    key_frames = get_keyframes(frame_output.decode('ascii'))
 
     print("Reading clip info")
     
@@ -96,15 +96,13 @@ def main(args):
     
     # call ffmpeg on those clips and store them in output_folder
     for i, (start, end) in enumerate(adjusted_clips, start=1):
-        print(start, end)
         delta = (end - start).seconds
-        print(delta)
         out = os.path.join(args.output, f"clip{i}.mp4")
         start_time = start.strftime("%H:%M:%S.%f")
-        print(start)
         command = f'ffmpeg -i {args.video} -ss {start_time} -t {delta} -c copy {out}'
         os.system(command)
         
+    print("DONE")
 
 
     
